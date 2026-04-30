@@ -1,0 +1,888 @@
+<!doctype html>
+<html lang="th" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบติดตามการอักเสบหลอดเลือดดำ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      box-sizing: border-box;
+    }
+    * {
+      font-family: 'Prompt', sans-serif;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in {
+      animation: fadeIn 0.5s ease-out;
+    }
+    .gradient-bg {
+      background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 25%, #80cbc4 50%, #4db6ac 75%, #26a69a 100%);
+    }
+    .mint-card {
+      background: linear-gradient(135deg, #ffffff 0%, #f0fdfa 100%);
+      box-shadow: 0 10px 40px -10px rgba(38, 166, 154, 0.3);
+    }
+    .mint-button {
+      background: linear-gradient(135deg, #4db6ac 0%, #26a69a 100%);
+    }
+    .mint-button:hover {
+      background: linear-gradient(135deg, #26a69a 0%, #00897b 100%);
+    }
+    .spinner {
+      border: 3px solid #e0f2f1;
+      border-top: 3px solid #26a69a;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+</head>
+<body class="h-full gradient-bg">
+  <div id="app-container" class="h-full w-full overflow-auto">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-teal-600 to-teal-500 text-white p-4 lg:p-6 shadow-xl sticky top-0 z-40">
+      <div class="max-w-7xl mx-auto">
+        <h1 id="main-title" class="text-2xl lg:text-3xl font-bold mb-3">ระบบติดตามการอักเสบหลอดเลือดดำ (Phlebitis)</h1>
+        <div class="flex gap-2 overflow-x-auto pb-2">
+          <button onclick="showTab('dashboard')" class="tab-btn px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all bg-white text-teal-600" data-tab="dashboard"> 📊 แดชบอร์ด </button> 
+          <button onclick="showTab('form')" class="tab-btn px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all hover:bg-teal-500" data-tab="form"> ➕ บันทึกข้อมูล </button>
+        </div>
+      </div>
+    </div>
+    <div class="p-4 lg:p-8 max-w-7xl mx-auto">
+      <!-- Dashboard Tab -->
+      <div id="dashboard-tab" class="tab-content">
+        <!-- Month/Year Filter -->
+        <div class="mint-card rounded-2xl p-4 lg:p-6 mb-6 border-2 border-teal-100">
+          <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <h2 class="text-xl lg:text-2xl font-bold text-teal-800">🔍 เลือกช่วงเวลา</h2>
+            <div class="flex flex-wrap gap-3 w-full sm:w-auto">
+              <select id="filter-month" class="px-4 py-2 rounded-xl border-2 border-teal-100 focus:border-teal-400 focus:ring-4 focus:ring-teal-50 outline-none bg-white text-teal-800 cursor-pointer flex-1 sm:flex-initial"> 
+                <option value="">ทุกเดือน</option> 
+              </select> 
+              <select id="filter-year" class="px-4 py-2 rounded-xl border-2 border-teal-100 focus:border-teal-400 focus:ring-4 focus:ring-teal-50 outline-none bg-white text-teal-800 cursor-pointer flex-1 sm:flex-initial"> 
+                <option value="">ทุกปี</option> 
+              </select>
+            </div>
+          </div>
+        </div>
+        <!-- Statistics Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          <div class="mint-card rounded-2xl p-6 border-2 border-teal-100">
+            <div class="flex items-center gap-4">
+              <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-2xl">📋</div>
+              <div>
+                <p class="text-sm text-teal-600 font-medium">รายการทั้งหมด</p>
+                <p id="stat-total" class="text-3xl font-bold text-teal-800">0</p>
+              </div>
+            </div>
+          </div>
+          <div class="mint-card rounded-2xl p-6 border-2 border-emerald-100">
+            <div class="flex items-center gap-4">
+              <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-2xl">✅</div>
+              <div>
+                <p class="text-sm text-emerald-600 font-medium">Grade 0: ปกติ</p>
+                <p id="stat-grade0" class="text-3xl font-bold text-emerald-800">0</p>
+              </div>
+            </div>
+          </div>
+          <div class="mint-card rounded-2xl p-6 border-2 border-lime-100">
+            <div class="flex items-center gap-4">
+              <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-lime-400 to-lime-600 flex items-center justify-center text-2xl">ℹ️</div>
+              <div>
+                <p class="text-sm text-lime-600 font-medium">Grade 1: เริ่มมีอาการ</p>
+                <p id="stat-grade1" class="text-3xl font-bold text-lime-800">0</p>
+              </div>
+            </div>
+          </div>
+          <div class="mint-card rounded-2xl p-6 border-2 border-yellow-100">
+            <div class="flex items-center gap-4">
+              <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-2xl">⚠️</div>
+              <div>
+                <p class="text-sm text-yellow-600 font-medium">Grade 2: ระยะเริ่มอักเสบ</p>
+                <p id="stat-grade2" class="text-3xl font-bold text-yellow-800">0</p>
+              </div>
+            </div>
+          </div>
+          <div class="mint-card rounded-2xl p-6 border-2 border-orange-100">
+            <div class="flex items-center gap-4">
+              <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-2xl">🔶</div>
+              <div>
+                <p class="text-sm text-orange-600 font-medium">Grade 3: อักเสบกลาง</p>
+                <p id="stat-grade3" class="text-3xl font-bold text-orange-800">0</p>
+              </div>
+            </div>
+          </div>
+          <div class="mint-card rounded-2xl p-6 border-2 border-red-100">
+            <div class="flex items-center gap-4">
+              <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center text-2xl">🚨</div>
+              <div>
+                <p class="text-sm text-red-600 font-medium">Grade 4: อักเสบรุนแรง</p>
+                <p id="stat-grade4" class="text-3xl font-bold text-red-800">0</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Inspector Statistics -->
+        <div class="mint-card rounded-2xl p-4 lg:p-6 mb-6 border-2 border-teal-100">
+          <h3 class="text-xl font-bold text-teal-800 mb-4">👥 สถิติตามผู้ตรวจสอบ</h3>
+          <div id="inspector-stats" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+        </div>
+        <!-- Dashboard Table -->
+        <div class="mint-card rounded-2xl p-4 lg:p-6 border-2 border-teal-100">
+          <h3 class="text-xl font-bold text-teal-800 mb-4">รายละเอียดข้อมูล</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b-2 border-teal-200">
+                  <th class="text-left py-3 px-2 lg:px-4 font-bold text-teal-700 whitespace-nowrap">วันที่</th>
+                  <th class="text-left py-3 px-2 lg:px-4 font-bold text-teal-700 whitespace-nowrap">HN</th>
+                  <th class="text-left py-3 px-2 lg:px-4 font-bold text-teal-700 whitespace-nowrap">ตำแหน่ง</th>
+                  <th class="text-center py-3 px-2 lg:px-4 font-bold text-teal-700 whitespace-nowrap">รูปภาพ</th>
+                  <th class="text-left py-3 px-2 lg:px-4 font-bold text-teal-700 whitespace-nowrap">VIP Score</th>
+                  <th class="text-left py-3 px-2 lg:px-4 font-bold text-teal-700 whitespace-nowrap">ผู้ตรวจ</th>
+                  <th class="text-center py-3 px-2 lg:px-4 font-bold text-teal-700 whitespace-nowrap">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="dashboard-table-body">
+                <tr><td colspan="7" class="text-center py-8 text-teal-500">ไม่มีข้อมูล</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!-- Form Tab -->
+      <div id="form-tab" class="tab-content hidden">
+        <div class="mint-card rounded-3xl p-4 lg:p-6 border-2 border-teal-100 fade-in">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center">
+              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            </div>
+            <h2 id="form-title" class="text-xl lg:text-2xl font-bold text-teal-800">บันทึกการประเมินใหม่</h2>
+          </div>
+          <form id="phlebitis-form" class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div>
+              <label class="flex items-center gap-2 text-sm font-semibold text-teal-700 mb-2"> <span class="text-lg">📅</span> วันที่ </label> 
+              <input id="current-date" type="date" required class="w-full px-4 py-3 rounded-xl border-2 border-teal-100 focus:border-teal-400 focus:ring-4 focus:ring-teal-50 outline-none transition-all bg-white text-teal-800">
+            </div>
+            <div>
+              <label class="flex items-center gap-2 text-sm font-semibold text-teal-700 mb-2"> <span class="text-lg">🕐</span> เวร </label> 
+              <select id="shift-select" required class="w-full px-4 py-3 rounded-xl border-2 border-teal-100 focus:border-teal-400 focus:ring-4 focus:ring-teal-50 outline-none transition-all bg-white text-teal-800 cursor-pointer"> 
+                <option value="">เลือกเวร...</option> <option value="เช้า">เช้า</option> <option value="บ่าย">บ่าย</option> <option value="ดึก">ดึก</option> 
+              </select>
+            </div>
+            <div>
+              <label class="flex items-center gap-2 text-sm font-semibold text-teal-700 mb-2"> <span class="text-lg">👤</span> HN </label>
+              <div class="flex gap-2">
+                <input id="hn-input" type="text" placeholder="พิมพ์หรือสแกนบาร์โค้ด..." required class="flex-1 px-4 py-3 rounded-xl border-2 border-teal-100 focus:border-teal-400 focus:ring-4 focus:ring-teal-50 outline-none transition-all bg-white text-teal-800 placeholder-teal-300"> 
+                <button id="scan-barcode-btn" type="button" class="w-12 h-12 rounded-xl mint-button text-white font-bold text-xl hover:scale-105 active:scale-95 transition-transform shadow-lg flex items-center justify-center" title="สแกนบาร์โค้ด"> 📷 </button>
+              </div>
+              <p class="text-xs text-teal-600 mt-1">💡 สามารถพิมพ์ HN หรือสแกนบาร์โค้ดจากป้ายข้อมือผู้ป่วย</p>
+            </div>
+            <div>
+              <label class="flex items-center gap-2 text-sm font-semibold text-teal-700 mb-2"> <span class="text-lg">💉</span> วันที่แทงเข็ม </label> 
+              <input id="injection-date" type="date" required class="w-full px-4 py-3 rounded-xl border-2 border-teal-100 focus:border-teal-400 focus:ring-4 focus:ring-teal-50 outline-none transition-all bg-white text-teal-800">
+            </div>
+            <div>
+              <label class="flex items-center gap-2 text-sm font-semibold text-teal-700 mb-2"> <span class="text-lg">📍</span> ตำแหน่งที่แทงเข็ม </label> 
+              <input id="position-input" type="text" placeholder="ระบุตำแหน่ง เช่น มือขวา, แขนซ้าย" required class="w-full px-4 py-3 rounded-xl border-2 border-teal-100 focus:border-teal-400 focus:ring-4 focus:ring-teal-50 outline-none transition-all bg-white text-teal-800 placeholder-teal-300">
+            </div>
+            <div>
+              <label class="flex items-center gap-2 text-sm font-semibold text-teal-700 mb-2"> <span class="text-lg">📷</span> รูปภาพ </label> 
+              <input id="image-input" type="file" accept="image/*" capture="environment" class="w-full px-4 py-3 rounded-xl border-2 border-teal-100 focus:border-teal-400 focus:ring-4 focus:ring-teal-50 outline-none transition-all bg-white text-teal-800 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-teal-100 file:text-teal-700 file:font-semibold hover:file:bg-teal-200 cursor-pointer">
+              <div id="image-preview" class="hidden mt-3">
+                <p class="text-xs text-teal-600 mb-2">ตัวอย่างรูปภาพ:</p>
+                <div class="relative inline-block">
+                  <img id="preview-img" class="w-32 h-32 object-cover rounded-xl border-2 border-teal-200" alt="ตัวอย่าง"> 
+                  <button type="button" onclick="clearImagePreview()" class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs font-bold hover:bg-red-600 transition-all">✕</button>
+                </div>
+                <p id="image-size-info" class="text-xs text-gray-500 mt-1"></p>
+              </div>
+            </div>
+            <div>
+              <label class="flex items-center gap-2 text-sm font-semibold text-teal-700 mb-2"> <span class="text-lg">⏰</span> วันที่หมดอายุ (3 วัน) </label> 
+              <input id="expiry-date" type="date" readonly class="w-full px-4 py-3 rounded-xl border-2 border-amber-100 focus:border-amber-400 focus:ring-4 focus:ring-amber-50 outline-none transition-all bg-amber-50 text-teal-800 font-semibold cursor-not-allowed">
+            </div>
+            <div>
+              <label class="flex items-center gap-2 text-sm font-semibold text-teal-700 mb-2"> <span class="text-lg">🩺</span> ผู้ตรวจสอบ </label>
+              <div class="flex gap-2">
+                <select id="inspector-select" required class="flex-1 px-4 py-3 rounded-xl border-2 border-teal-100 focus:border-teal-400 focus:ring-4 focus:ring-teal-50 outline-none transition-all bg-white text-teal-800 cursor-pointer"> 
+                  <option value="">เลือกผู้ตรวจสอบ...</option> 
+                </select> 
+                <button id="add-inspector-btn" type="button" class="w-12 h-12 rounded-xl mint-button text-white font-bold text-2xl hover:scale-105 active:scale-95 transition-transform shadow-lg"> + </button>
+              </div>
+            </div>
+            <div>
+              <label class="flex items-center gap-2 text-sm font-semibold text-teal-700 mb-2"> <span class="text-lg">📊</span> การประเมิน VIP Score </label> 
+              <select id="vip-score" required class="w-full px-4 py-3 rounded-xl border-2 border-teal-100 focus:border-teal-400 focus:ring-4 focus:ring-teal-50 outline-none transition-all bg-white text-teal-800 cursor-pointer"> 
+                <option value="">เลือก Grade...</option> 
+                <option value="0">Grade 0: ปกติ (ผิวหนังปกติ ไม่เจ็บ)</option> 
+                <option value="1">Grade 1: เริ่มมีอาการ (เจ็บเล็กน้อย หรือผิวหนังเริ่มแดง)</option> 
+                <option value="2">Grade 2: ระยะเริ่มอักเสบ (เจ็บ แดง หรือบวมบริเวณที่แทง)</option> 
+                <option value="3">Grade 3: อักเสบระยะกลาง (เจ็บ แดง บวม มีรอยแดงตามแนวเส้นเลือด)</option> 
+                <option value="4">Grade 4: อักเสบรุนแรง (เจ็บ แดง บวม ชัดเจน คลำได้เส้นเลือดแข็งเป็นลำ)</option> 
+              </select>
+            </div>
+            <div class="lg:col-span-2">
+              <label class="flex items-center gap-2 text-sm font-semibold text-teal-700 mb-2"> <span class="text-lg">📝</span> หมายเหตุ </label> 
+              <textarea id="notes-input" rows="3" placeholder="บันทึกข้อมูลเพิ่มเติม..." class="w-full px-4 py-3 rounded-xl border-2 border-teal-100 focus:border-teal-400 focus:ring-4 focus:ring-teal-50 outline-none transition-all bg-white text-teal-800 placeholder-teal-300 resize-none"></textarea>
+            </div>
+            <div class="lg:col-span-2">
+              <button type="submit" id="submit-btn" class="w-full py-4 rounded-xl mint-button text-white font-bold text-lg hover:shadow-xl active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2"> 
+                <span id="submit-text">✨ บันทึกข้อมูล</span>
+                <div id="submit-spinner" class="spinner hidden"></div>
+              </button>
+            </div>
+          </form>
+        </div>
+        <!-- Current Month Records Table -->
+        <div class="mint-card rounded-2xl p-4 lg:p-6 mt-6 border-2 border-teal-100">
+          <h3 class="text-xl font-bold text-teal-800 mb-4">รายละเอียดข้อมูล (เดือนปัจจุบัน)</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b-2 border-teal-200">
+                  <th class="text-left py-3 px-2 lg:px-4 font-bold text-teal-700 whitespace-nowrap">วันที่</th>
+                  <th class="text-left py-3 px-2 lg:px-4 font-bold text-teal-700 whitespace-nowrap">HN</th>
+                  <th class="text-left py-3 px-2 lg:px-4 font-bold text-teal-700 whitespace-nowrap">ตำแหน่ง</th>
+                  <th class="text-center py-3 px-2 lg:px-4 font-bold text-teal-700 whitespace-nowrap">รูปภาพ</th>
+                  <th class="text-left py-3 px-2 lg:px-4 font-bold text-teal-700 whitespace-nowrap">VIP Score</th>
+                  <th class="text-left py-3 px-2 lg:px-4 font-bold text-teal-700 whitespace-nowrap">ผู้ตรวจ</th>
+                  <th class="text-center py-3 px-2 lg:px-4 font-bold text-teal-700 whitespace-nowrap">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="form-table-body">
+                <tr><td colspan="6" class="text-center py-8 text-teal-500">ไม่มีข้อมูล</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Footer -->
+    <div class="bg-gradient-to-r from-teal-600 to-teal-500 text-white p-4 text-center mt-8">
+      <p class="text-sm">พัฒนาโดย @Aomaree2026</p>
+    </div>
+    <!-- Detail Modal -->
+    <div id="detail-modal" class="hidden fixed inset-0 bg-black/50 z-50 overflow-y-auto">
+      <div class="bg-white rounded-3xl p-6 lg:p-8 max-w-2xl w-full mx-auto my-8 mint-card" style="margin-top: 2rem; margin-bottom: 2rem;">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-2xl font-bold text-teal-800">📋 รายละเอียด</h3>
+          <button onclick="closeDetailModal()" class="w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-xl transition-all"> ✕ </button>
+        </div>
+        <div id="detail-content" class="space-y-4"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ใช้งาน Web App URL ที่อัปเดตใหม่
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxp5rSOd0bBSSFHK884vfzq8svy1O8dDT2Ck_BYMWaCLUBt-AHmv0_ZVEbdR8LQh_Qv/exec';
+    
+    const defaultConfig = {
+      main_title: "ระบบติดตามการอักเสบหลอดเลือดดำ (Phlebitis)",
+      form_title: "บันทึกการประเมินใหม่",
+      background_color: "#b2dfdb",
+      primary_color: "#26a69a",
+      secondary_color: "#4db6ac",
+      text_color: "#00695c",
+      accent_color: "#80cbc4",
+      font_family: "Prompt"
+    };
+
+    let config = { ...defaultConfig };
+    let allRecords = [];
+
+    async function onConfigChange(cfg) {
+      config = { ...defaultConfig, ...cfg };
+      const customFont = config.font_family || defaultConfig.font_family;
+      const baseFontStack = 'system-ui, sans-serif';
+      document.body.style.fontFamily = `${customFont}, ${baseFontStack}`;
+      document.getElementById('main-title').textContent = config.main_title || defaultConfig.main_title;
+      document.getElementById('form-title').textContent = config.form_title || defaultConfig.form_title;
+    }
+
+    function mapToCapabilities(cfg) {
+      return {
+        recolorables: [
+          { get: () => cfg.background_color || defaultConfig.background_color, set: (value) => { cfg.background_color = value; window.elementSdk.setConfig({ background_color: value }); } },
+          { get: () => cfg.primary_color || defaultConfig.primary_color, set: (value) => { cfg.primary_color = value; window.elementSdk.setConfig({ primary_color: value }); } },
+          { get: () => cfg.secondary_color || defaultConfig.secondary_color, set: (value) => { cfg.secondary_color = value; window.elementSdk.setConfig({ secondary_color: value }); } },
+          { get: () => cfg.text_color || defaultConfig.text_color, set: (value) => { cfg.text_color = value; window.elementSdk.setConfig({ text_color: value }); } },
+          { get: () => cfg.accent_color || defaultConfig.accent_color, set: (value) => { cfg.accent_color = value; window.elementSdk.setConfig({ accent_color: value }); } }
+        ],
+        borderables: [],
+        fontEditable: { get: () => cfg.font_family || defaultConfig.font_family, set: (value) => { cfg.font_family = value; window.elementSdk.setConfig({ font_family: value }); } },
+        fontSizeable: undefined
+      };
+    }
+
+    function mapToEditPanelValues(cfg) {
+      return new Map([
+        ["main_title", cfg.main_title || defaultConfig.main_title],
+        ["form_title", cfg.form_title || defaultConfig.form_title]
+      ]);
+    }
+
+    if (window.elementSdk) {
+      window.elementSdk.init({ defaultConfig, onConfigChange, mapToCapabilities, mapToEditPanelValues });
+    }
+    
+    async function initializeApp() {
+      showToast('⏳ กำลังโหลดข้อมูล...', 'info');
+      try {
+        const recordsResponse = await fetch(`${APPS_SCRIPT_URL}?action=getAll`);
+        const recordsData = await recordsResponse.json();
+        if (recordsData.success) {
+          allRecords = recordsData.data || [];
+          updateAllViews();
+        }
+        
+        const inspectorsResponse = await fetch(`${APPS_SCRIPT_URL}?action=getInspectors`);
+        const inspectorsData = await inspectorsResponse.json();
+        if (inspectorsData.success && inspectorsData.data) {
+          updateInspectorDropdown(inspectorsData.data);
+        }
+        showToast('✅ โหลดข้อมูลสำเร็จ', 'success');
+      } catch (error) {
+        console.error('Initialize error:', error);
+        showToast('❌ ไม่สามารถโหลดข้อมูลได้', 'error');
+      }
+    }
+    
+    document.addEventListener('DOMContentLoaded', initializeApp);
+    
+    function updateInspectorDropdown(inspectors) {
+      const inspectorSelect = document.getElementById('inspector-select');
+      const currentValue = inspectorSelect.value;
+      inspectorSelect.innerHTML = '<option value="">เลือกผู้ตรวจสอบ...</option>';
+      inspectors.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        inspectorSelect.appendChild(option);
+      });
+      if (currentValue && inspectors.includes(currentValue)) {
+        inspectorSelect.value = currentValue;
+      }
+    }
+    
+    function showTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-white', 'text-teal-600');
+        btn.classList.add('hover:bg-teal-500');
+      });
+      document.getElementById(tabName + '-tab').classList.remove('hidden');
+      const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
+      activeBtn.classList.add('bg-white', 'text-teal-600');
+      activeBtn.classList.remove('hover:bg-teal-500');
+    }
+    
+    const currentDateInput = document.getElementById('current-date');
+    const today = new Date();
+    currentDateInput.value = today.toISOString().split('T')[0];
+    
+    const injectionDateInput = document.getElementById('injection-date');
+    const expiryDateInput = document.getElementById('expiry-date');
+    
+    injectionDateInput.addEventListener('change', function() {
+      if (this.value) {
+        const injectionDate = new Date(this.value);
+        const expiryDate = new Date(injectionDate);
+        expiryDate.setDate(expiryDate.getDate() + 3);
+        expiryDateInput.value = expiryDate.toISOString().split('T')[0];
+      }
+    });
+    
+    const scanBarcodeBtn = document.getElementById('scan-barcode-btn');
+    const hnInput = document.getElementById('hn-input');
+    
+    scanBarcodeBtn.addEventListener('click', async function(e) {
+      e.preventDefault();
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showToast('❌ เบราว์เซอร์ของคุณไม่รองรับการเข้าถึงกล้อง', 'error');
+        return;
+      }
+      
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 p-4';
+      modal.innerHTML = `
+        <div class="w-full max-w-md">
+          <div class="bg-white rounded-t-3xl p-4">
+            <h3 class="text-xl font-bold text-teal-800 text-center">📷 สแกนบาร์โค้ด</h3>
+            <p class="text-sm text-teal-600 text-center mt-1">จ่อกล้องที่บาร์โค้ดบนป้ายข้อมือผู้ป่วย</p>
+          </div>
+          <div class="relative bg-black">
+            <video id="barcode-video" class="w-full" autoplay playsinline></video>
+            <canvas id="barcode-canvas" class="hidden"></canvas>
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div class="w-64 h-32 border-4 border-teal-400 rounded-xl"></div>
+            </div>
+            <div id="scan-status" class="absolute bottom-4 left-0 right-0 text-center">
+              <p class="text-white bg-black/70 inline-block px-4 py-2 rounded-lg text-sm">กำลังเปิดกล้อง...</p>
+            </div>
+          </div>
+          <div class="bg-white rounded-b-3xl p-4">
+            <button id="cancel-scan" class="w-full py-3 rounded-xl border-2 border-gray-200 bg-gray-50 text-gray-700 font-semibold hover:bg-gray-100 transition-all">
+              ยกเลิก
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      
+      const video = document.getElementById('barcode-video');
+      const canvas = document.getElementById('barcode-canvas');
+      const ctx = canvas.getContext('2d');
+      const statusEl = document.getElementById('scan-status');
+      
+      let isScanning = true;
+      let stream = null;
+      let codeReader = null;
+      
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } 
+        });
+        video.srcObject = stream;
+        await video.play();
+        statusEl.innerHTML = '<p class="text-white bg-black/70 inline-block px-4 py-2 rounded-lg text-sm">🔍 กำลังสแกน...</p>';
+        codeReader = new ZXing.BrowserMultiFormatReader();
+        
+        const scanFrame = async () => {
+          if (!isScanning || !video.videoWidth || !video.videoHeight) {
+            if (isScanning) setTimeout(scanFrame, 100);
+            return;
+          }
+          try {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const result = await codeReader.decodeFromImageData(imageData);
+            if (result && result.text) {
+              const barcodeText = result.text;
+              hnInput.value = barcodeText;
+              isScanning = false;
+              if (stream) stream.getTracks().forEach(track => track.stop());
+              modal.remove();
+              showToast('✅ สแกนบาร์โค้ดสำเร็จ: ' + barcodeText, 'success');
+              return;
+            }
+          } catch (err) {}
+          if (isScanning) setTimeout(scanFrame, 100);
+        };
+        video.addEventListener('loadedmetadata', () => { setTimeout(scanFrame, 500); });
+      } catch (error) {
+        modal.remove();
+        let errorMessage = '❌ ไม่สามารถเข้าถึงกล้องได้';
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') errorMessage = '❌ กรุณาอนุญาตการใช้งานกล้อง';
+        showToast(errorMessage, 'error');
+        return;
+      }
+      document.getElementById('cancel-scan').addEventListener('click', () => {
+        isScanning = false;
+        if (stream) stream.getTracks().forEach(track => track.stop());
+        modal.remove();
+      });
+    });
+    
+    const addInspectorBtn = document.getElementById('add-inspector-btn');
+    const inspectorSelect = document.getElementById('inspector-select');
+    
+    addInspectorBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 fade-in p-4';
+      modal.innerHTML = `
+        <div class="bg-white rounded-3xl p-6 lg:p-8 max-w-md w-full mint-card">
+          <h3 class="text-xl lg:text-2xl font-bold text-teal-800 mb-4">➕ เพิ่มผู้ตรวจสอบใหม่</h3>
+          <input type="text" id="new-inspector-name" placeholder="ระบุชื่อผู้ตรวจสอบ..." class="w-full px-4 py-3 rounded-xl border-2 border-teal-100 focus:border-teal-400 focus:ring-4 focus:ring-teal-50 outline-none transition-all bg-white text-teal-800 mb-4">
+          <div class="flex gap-3">
+            <button id="cancel-inspector" class="flex-1 py-3 rounded-xl border-2 border-gray-200 bg-gray-50 text-gray-700 font-semibold hover:bg-gray-100 transition-all">ยกเลิก</button>
+            <button id="save-inspector" class="flex-1 py-3 rounded-xl mint-button text-white font-semibold hover:shadow-lg transition-all">บันทึก</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      const nameInput = document.getElementById('new-inspector-name');
+      nameInput.focus();
+      
+      document.getElementById('cancel-inspector').addEventListener('click', () => modal.remove());
+      
+      document.getElementById('save-inspector').addEventListener('click', async () => {
+        const newName = nameInput.value.trim();
+        if (!newName) { showToast('❌ กรุณาระบุชื่อผู้ตรวจสอบ', 'error'); return; }
+        const saveBtn = document.getElementById('save-inspector');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'กำลังบันทึก...';
+        
+        try {
+          // เพิ่ม headers สำหรับข้ามโดเมน (CORS) บน GitHub
+          const response = await fetch(APPS_SCRIPT_URL, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'addInspector', name: newName }) 
+          });
+          const result = await response.json();
+          if (result.success) {
+            const inspectorsResponse = await fetch(`${APPS_SCRIPT_URL}?action=getInspectors`);
+            const inspectorsData = await inspectorsResponse.json();
+            if (inspectorsData.success && inspectorsData.data) {
+              updateInspectorDropdown(inspectorsData.data);
+              inspectorSelect.value = newName; 
+            }
+            showToast('✅ เพิ่มผู้ตรวจสอบเรียบร้อยแล้ว');
+            modal.remove();
+          } else {
+            showToast('❌ ไม่สามารถเพิ่มได้: ' + result.message, 'error');
+            saveBtn.disabled = false; saveBtn.textContent = 'บันทึก';
+          }
+        } catch (error) {
+          showToast('❌ เกิดข้อผิดพลาดในการเพิ่มผู้ตรวจสอบ', 'error');
+          saveBtn.disabled = false; saveBtn.textContent = 'บันทึก';
+        }
+      });
+      nameInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') document.getElementById('save-inspector').click(); });
+    });
+    
+    const imageInput = document.getElementById('image-input');
+    const imagePreview = document.getElementById('image-preview');
+    const previewImg = document.getElementById('preview-img');
+    const imageSizeInfo = document.getElementById('image-size-info');
+    
+    imageInput.addEventListener('change', async function(e) {
+      if (this.files.length > 0) {
+        const file = this.files[0];
+        imageSizeInfo.textContent = '⏳ กำลังประมวลผลรูปภาพ...';
+        imagePreview.classList.remove('hidden');
+        try {
+          const compressed = await compressImage(file);
+          previewImg.src = compressed.dataUrl;
+          const sizeKB = (compressed.dataUrl.length * 0.75 / 1024).toFixed(2);
+          imageSizeInfo.textContent = `ขนาด: ${sizeKB} KB (บีบอัดแล้ว)`;
+        } catch (error) {
+          imageSizeInfo.textContent = '❌ ไม่สามารถแสดงตัวอย่างได้';
+        }
+      }
+    });
+    
+    window.clearImagePreview = function() {
+      imageInput.value = '';
+      imagePreview.classList.add('hidden');
+      previewImg.src = '';
+      imageSizeInfo.textContent = '';
+    };
+    
+    // ตั้งค่าลดความละเอียดและคุณภาพให้อัปโหลดผ่านชัวร์ 100%
+    async function compressImage(file, maxWidth = 600, maxHeight = 600, quality = 0.6) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = new Image();
+          img.onload = function() {
+            let width = img.width; let height = img.height;
+            if (width > height) { if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; } } 
+            else { if (height > maxHeight) { width = Math.round((width * maxHeight) / height); height = maxHeight; } }
+            const canvas = document.createElement('canvas');
+            canvas.width = width; canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+            resolve({ dataUrl: dataUrl, width: width, height: height });
+          };
+          img.onerror = () => reject(new Error('Failed to load image'));
+          img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
+    }
+    
+    const form = document.getElementById('phlebitis-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const submitText = document.getElementById('submit-text');
+    const submitSpinner = document.getElementById('submit-spinner');
+    
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      submitBtn.disabled = true;
+      submitText.textContent = '⏳ กำลังบันทึก...';
+      submitSpinner.classList.remove('hidden');
+      
+      try {
+        const imageInput = document.getElementById('image-input');
+        let imageBase64 = '';
+        let imageName = '';
+        
+        if (imageInput.files.length > 0) {
+          const file = imageInput.files[0];
+          imageName = file.name;
+          const compressed = await compressImage(file);
+          imageBase64 = compressed.dataUrl;
+        }
+        
+        const formData = {
+          action: 'save',
+          date: document.getElementById('current-date').value,
+          shift: document.getElementById('shift-select').value,
+          hn: document.getElementById('hn-input').value,
+          injection_date: document.getElementById('injection-date').value,
+          position: document.getElementById('position-input').value,
+          imageBase64: imageBase64,
+          imageName: imageName,
+          expiry_date: document.getElementById('expiry-date').value,
+          vip_grade: document.getElementById('vip-score').value,
+          inspector: document.getElementById('inspector-select').value,
+          notes: document.getElementById('notes-input').value
+        };
+        
+        const response = await fetch(APPS_SCRIPT_URL, { 
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8',
+          },
+          body: JSON.stringify(formData) 
+        });
+        
+        const result = await response.json();
+        
+        submitBtn.disabled = false;
+        submitText.textContent = '✨ บันทึกข้อมูล';
+        submitSpinner.classList.add('hidden');
+        
+        if (result.success) {
+          showToast('✅ บันทึกข้อมูลสำเร็จ');
+          form.reset();
+          currentDateInput.value = today.toISOString().split('T')[0];
+          clearImagePreview();
+          await initializeApp();
+          showTab('dashboard');
+        } else {
+          showToast('❌ บันทึกข้อมูลไม่สำเร็จ: ' + result.message, 'error');
+        }
+      } catch (error) {
+        showToast('❌ เกิดข้อผิดพลาดในการบันทึก: ' + error.message, 'error');
+        submitBtn.disabled = false; 
+        submitText.textContent = '✨ บันทึกข้อมูล'; 
+        submitSpinner.classList.add('hidden');
+      }
+    });
+    
+    function updateAllViews() {
+      updateDashboard(); updateFilters(); updateFormTable();
+    }
+    
+    function updateDashboard() {
+      const filterMonth = document.getElementById('filter-month').value;
+      const filterYear = document.getElementById('filter-year').value;
+      let filteredRecords = allRecords;
+      
+      if (filterMonth || filterYear) {
+        filteredRecords = allRecords.filter(record => {
+          const recordDate = new Date(record.date);
+          const monthMatch = !filterMonth || recordDate.getMonth() === parseInt(filterMonth);
+          const yearMatch = !filterYear || recordDate.getFullYear() === parseInt(filterYear);
+          return monthMatch && yearMatch;
+        });
+      }
+      
+      document.getElementById('stat-total').textContent = filteredRecords.length;
+      document.getElementById('stat-grade0').textContent = filteredRecords.filter(r => r.vip_grade === '0').length;
+      document.getElementById('stat-grade1').textContent = filteredRecords.filter(r => r.vip_grade === '1').length;
+      document.getElementById('stat-grade2').textContent = filteredRecords.filter(r => r.vip_grade === '2').length;
+      document.getElementById('stat-grade3').textContent = filteredRecords.filter(r => r.vip_grade === '3').length;
+      document.getElementById('stat-grade4').textContent = filteredRecords.filter(r => r.vip_grade === '4').length;
+      
+      const inspectorCounts = {};
+      filteredRecords.forEach(record => { inspectorCounts[record.inspector] = (inspectorCounts[record.inspector] || 0) + 1; });
+      const inspectorStatsDiv = document.getElementById('inspector-stats');
+      inspectorStatsDiv.innerHTML = '';
+      
+      Object.entries(inspectorCounts).sort((a, b) => b[1] - a[1]).forEach(([inspector, count]) => {
+        const card = document.createElement('div');
+        card.className = 'p-4 rounded-xl bg-teal-50 border-2 border-teal-100';
+        card.innerHTML = `<p class="text-sm text-teal-600 font-medium">${inspector}</p><p class="text-2xl font-bold text-teal-800">${count} รายการ</p>`;
+        inspectorStatsDiv.appendChild(card);
+      });
+      if (Object.keys(inspectorCounts).length === 0) inspectorStatsDiv.innerHTML = '<p class="text-teal-500 col-span-full text-center py-4">ไม่มีข้อมูล</p>';
+      updateDashboardTable(filteredRecords);
+    }
+    
+    function updateDashboardTable(records) {
+      const tbody = document.getElementById('dashboard-table-body');
+      tbody.innerHTML = '';
+      if (records.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-teal-500">ไม่มีข้อมูล</td></tr>'; return; }
+      
+      records.slice().reverse().forEach(record => {
+        const row = document.createElement('tr');
+        row.className = 'border-b border-teal-100 hover:bg-teal-50 transition-colors';
+        const gradeInfo = getGradeInfo(record.vip_grade);
+        const imageCell = record.image_url 
+          ? `<img src="${record.image_url}" alt="รูปภาพ" class="w-16 h-16 object-cover rounded-lg border-2 border-teal-100 cursor-pointer hover:scale-105 transition-transform" loading="lazy" onerror="console.error('Image failed to load:', this.src); this.style.background='#e5e7eb'; this.alt='ไม่มีรูป';" onclick='viewDetail(${JSON.stringify(record.id)})'>`
+          : '<span class="text-gray-400 text-xs">ไม่มีรูป</span>';
+        
+        row.innerHTML = `
+          <td class="py-3 px-2 lg:px-4 text-teal-800">${formatDate(record.date)}</td>
+          <td class="py-3 px-2 lg:px-4 text-teal-800 font-semibold">${record.hn}</td>
+          <td class="py-3 px-2 lg:px-4 text-teal-800">${record.position}</td>
+          <td class="py-3 px-2 lg:px-4 text-center">${imageCell}</td>
+          <td class="py-3 px-2 lg:px-4"><span class="inline-block px-3 py-1 rounded-lg ${gradeInfo.color} font-semibold text-xs whitespace-nowrap">${gradeInfo.text}</span></td>
+          <td class="py-3 px-2 lg:px-4 text-teal-800">${record.inspector}</td>
+          <td class="py-3 px-2 lg:px-4 text-center">
+            <div class="flex gap-2 justify-center flex-wrap">
+              <button onclick='viewDetail(${JSON.stringify(record.id)})' class="px-3 py-1 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 font-semibold text-xs transition-all">ดู</button>
+              <button onclick='deleteRecord(${JSON.stringify(record.id)})' class="px-3 py-1 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 font-semibold text-xs transition-all">ลบ</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+    
+    function updateFilters() {
+      const months = new Set(); const years = new Set();
+      allRecords.forEach(record => { const date = new Date(record.date); months.add(date.getMonth()); years.add(date.getFullYear()); });
+      const monthSelect = document.getElementById('filter-month'); const yearSelect = document.getElementById('filter-year');
+      const currentMonth = monthSelect.value; const currentYear = yearSelect.value;
+      
+      monthSelect.innerHTML = '<option value="">ทุกเดือน</option>';
+      const monthNames = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+      Array.from(months).sort((a, b) => b - a).forEach(month => {
+        const option = document.createElement('option'); option.value = month; option.textContent = monthNames[month]; monthSelect.appendChild(option);
+      });
+      
+      yearSelect.innerHTML = '<option value="">ทุกปี</option>';
+      Array.from(years).sort((a, b) => b - a).forEach(year => {
+        const option = document.createElement('option'); option.value = year; option.textContent = year + 543; yearSelect.appendChild(option);
+      });
+      monthSelect.value = currentMonth; yearSelect.value = currentYear;
+    }
+    
+    document.getElementById('filter-month').addEventListener('change', updateDashboard);
+    document.getElementById('filter-year').addEventListener('change', updateDashboard);
+    
+    function updateFormTable() {
+      const currentDate = new Date(); const currentMonth = currentDate.getMonth(); const currentYear = currentDate.getFullYear();
+      const currentMonthRecords = allRecords.filter(record => {
+        const recordDate = new Date(record.date); return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear;
+      });
+      
+      const tbody = document.getElementById('form-table-body'); tbody.innerHTML = '';
+      if (currentMonthRecords.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-teal-500">ไม่มีข้อมูล</td></tr>'; return; }
+      
+      currentMonthRecords.slice().reverse().forEach(record => {
+        const row = document.createElement('tr'); row.className = 'border-b border-teal-100 hover:bg-teal-50 transition-colors';
+        const gradeInfo = getGradeInfo(record.vip_grade);
+        const imageCell = record.image_url 
+          ? `<img src="${record.image_url}" alt="รูปภาพ" class="w-16 h-16 object-cover rounded-lg border-2 border-teal-100 cursor-pointer hover:scale-105 transition-transform" loading="lazy" onerror="console.error('Image failed to load:', this.src); this.style.background='#e5e7eb'; this.alt='ไม่มีรูป';" onclick='viewDetail(${JSON.stringify(record.id)})'>`
+          : '<span class="text-gray-400 text-xs">ไม่มีรูป</span>';
+        
+        row.innerHTML = `
+          <td class="py-3 px-2 lg:px-4 text-teal-800">${formatDate(record.date)}</td>
+          <td class="py-3 px-2 lg:px-4 text-teal-800 font-semibold">${record.hn}</td>
+          <td class="py-3 px-2 lg:px-4 text-teal-800">${record.position}</td>
+          <td class="py-3 px-2 lg:px-4 text-center">${imageCell}</td>
+          <td class="py-3 px-2 lg:px-4"><span class="inline-block px-3 py-1 rounded-lg ${gradeInfo.color} font-semibold text-xs whitespace-nowrap">${gradeInfo.text}</span></td>
+          <td class="py-3 px-2 lg:px-4 text-teal-800">${record.inspector}</td>
+          <td class="py-3 px-2 lg:px-4 text-center">
+            <div class="flex gap-2 justify-center flex-wrap">
+              <button onclick='viewDetail(${JSON.stringify(record.id)})' class="px-3 py-1 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 font-semibold text-xs transition-all">ดู</button>
+              <button onclick='deleteRecord(${JSON.stringify(record.id)})' class="px-3 py-1 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 font-semibold text-xs transition-all">ลบ</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+    
+    window.viewDetail = function(recordId) {
+      const record = allRecords.find(r => r.id === recordId); if (!record) return;
+      const gradeInfo = getGradeInfo(record.vip_grade);
+      const detailContent = document.getElementById('detail-content');
+      detailContent.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div><p class="text-sm text-teal-600 font-medium mb-1">วันที่</p><p class="text-lg text-teal-800 font-semibold">${formatDate(record.date)}</p></div>
+          <div><p class="text-sm text-teal-600 font-medium mb-1">เวร</p><p class="text-lg text-teal-800 font-semibold">${record.shift}</p></div>
+          <div><p class="text-sm text-teal-600 font-medium mb-1">HN</p><p class="text-lg text-teal-800 font-semibold">${record.hn}</p></div>
+          <div><p class="text-sm text-teal-600 font-medium mb-1">วันที่แทงเข็ม</p><p class="text-lg text-teal-800 font-semibold">${formatDate(record.injection_date)}</p></div>
+          <div><p class="text-sm text-teal-600 font-medium mb-1">ตำแหน่งที่แทงเข็ม</p><p class="text-lg text-teal-800 font-semibold">${record.position}</p></div>
+          <div><p class="text-sm text-teal-600 font-medium mb-1">วันที่หมดอายุ</p><p class="text-lg text-amber-600 font-semibold">${formatDate(record.expiry_date)}</p></div>
+          <div><p class="text-sm text-teal-600 font-medium mb-1">ผู้ตรวจสอบ</p><p class="text-lg text-teal-800 font-semibold">${record.inspector}</p></div>
+          <div class="md:col-span-2"><p class="text-sm text-teal-600 font-medium mb-1">การประเมิน VIP Score</p><span class="inline-block px-4 py-2 rounded-lg ${gradeInfo.color} font-semibold">${gradeInfo.text}</span></div>
+          ${record.image_url ? `<div class="md:col-span-2"><p class="text-sm text-teal-600 font-medium mb-2">รูปภาพ</p><img src="${record.image_url}" alt="รูปภาพ" class="w-full rounded-xl border-2 border-teal-100 max-h-96 object-contain" loading="lazy"></div>` : ''}
+          ${record.notes ? `<div class="md:col-span-2"><p class="text-sm text-teal-600 font-medium mb-1">หมายเหตุ</p><p class="text-lg text-teal-800">${record.notes}</p></div>` : ''}
+        </div>
+      `;
+      document.getElementById('detail-modal').classList.remove('hidden');
+    };
+    
+    window.closeDetailModal = function() { document.getElementById('detail-modal').classList.add('hidden'); };
+    
+    window.deleteRecord = async function(recordId) {
+      const record = allRecords.find(r => r.id === recordId); if (!record) return;
+      const result = await Swal.fire({
+        title: 'ยืนยันการลบ?',
+        html: `คุณต้องการลบรายการ <strong>HN: ${record.hn}</strong> ใช่หรือไม่?<br><small class="text-gray-500">การดำเนินการนี้ไม่สามารถย้อนกลับได้</small>`,
+        icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#6b7280',
+        confirmButtonText: 'ใช่, ลบเลย', cancelButtonText: 'ยกเลิก', reverseButtons: true, showLoaderOnConfirm: true,
+        preConfirm: async () => {
+          try {
+            const response = await fetch(APPS_SCRIPT_URL, { 
+              method: 'POST', 
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify({ action: 'delete', id: recordId }) 
+            });
+            const result = await response.json();
+            if (!result.success) throw new Error(result.message || 'ลบข้อมูลไม่สำเร็จ');
+            return result;
+          } catch (error) { Swal.showValidationMessage(`เกิดข้อผิดพลาด: ${error.message}`); }
+        },
+        allowOutsideClick: () => !Swal.isLoading()
+      });
+      if (result.isConfirmed) {
+        await initializeApp();
+        Swal.fire({ icon: 'success', title: 'ลบสำเร็จ!', text: 'ลบข้อมูลเรียบร้อยแล้ว', confirmButtonText: 'ตกลง', confirmButtonColor: '#26a69a', timer: 2000, timerProgressBar: true });
+      }
+    };
+    
+    function getGradeInfo(grade) {
+      const grades = {
+        '0': { text: 'Grade 0: ปกติ', color: 'bg-emerald-100 text-emerald-700' },
+        '1': { text: 'Grade 1: เริ่มมีอาการ', color: 'bg-lime-100 text-lime-700' },
+        '2': { text: 'Grade 2: ระยะเริ่มอักเสบ', color: 'bg-yellow-100 text-yellow-700' },
+        '3': { text: 'Grade 3: อักเสบระยะกลาง', color: 'bg-orange-100 text-orange-700' },
+        '4': { text: 'Grade 4: อักเสบรุนแรง', color: 'bg-red-100 text-red-700' }
+      };
+      return grades[grade] || { text: 'ไม่ทราบ', color: 'bg-gray-100 text-gray-700' };
+    }
+    
+    function formatDate(dateString) {
+      if (!dateString) return '-';
+      return new Date(dateString).toLocaleDateString('th-TH');
+    }
+    
+    function showToast(message, type = 'success') {
+      const icons = { success: 'success', error: 'error', info: 'info', warning: 'warning' };
+      const titles = { success: 'สำเร็จ!', error: 'เกิดข้อผิดพลาด!', info: 'แจ้งเตือน', warning: 'คำเตือน' };
+      Swal.fire({ icon: icons[type] || 'info', title: titles[type] || 'แจ้งเตือน', text: message, confirmButtonText: 'ตกลง', confirmButtonColor: '#26a69a', timer: 3000, timerProgressBar: true });
+    }
+  </script>
+</body>
+</html>
