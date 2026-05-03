@@ -10,32 +10,20 @@
   <script src="https://unpkg.com/@zxing/library@latest"></script>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body {
-      box-sizing: border-box;
-    }
-    * {
-      font-family: 'Prompt', sans-serif;
-    }
+    body { box-sizing: border-box; }
+    * { font-family: 'Prompt', sans-serif; }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    .fade-in {
-      animation: fadeIn 0.5s ease-out;
-    }
-    .gradient-bg {
-      background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 25%, #80cbc4 50%, #4db6ac 75%, #26a69a 100%);
-    }
+    .fade-in { animation: fadeIn 0.5s ease-out; }
+    .gradient-bg { background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 25%, #80cbc4 50%, #4db6ac 75%, #26a69a 100%); }
     .mint-card {
       background: linear-gradient(135deg, #ffffff 0%, #f0fdfa 100%);
       box-shadow: 0 10px 40px -10px rgba(38, 166, 154, 0.3);
     }
-    .mint-button {
-      background: linear-gradient(135deg, #4db6ac 0%, #26a69a 100%);
-    }
-    .mint-button:hover {
-      background: linear-gradient(135deg, #26a69a 0%, #00897b 100%);
-    }
+    .mint-button { background: linear-gradient(135deg, #4db6ac 0%, #26a69a 100%); }
+    .mint-button:hover { background: linear-gradient(135deg, #26a69a 0%, #00897b 100%); }
     .spinner {
       border: 3px solid #e0f2f1;
       border-top: 3px solid #26a69a;
@@ -291,8 +279,10 @@
   </div>
 
   <script>
-    // ใช้งาน Web App URL ที่อัปเดตใหม่
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbykjx3jiKq7vRfUt9QIHSFFpMbOSDrSqlKP6Tu7iEWpOqJCWMXJWi6gQFFLOR2JF7y3/exec';
+    // ==========================================
+    // 🚨 ใส่ลิงก์ Google Apps Script ตรงนี้ครับ! 🚨
+    // ==========================================
+    const APPS_SCRIPT_URL = 'ใส่ลิงก์ของ_Google_Apps_Script_ที่มี_exec_ลงท้ายที่นี่ครับ';
     
     const defaultConfig = {
       main_title: "ระบบติดตามการอักเสบหลอดเลือดดำ (Phlebitis)",
@@ -344,6 +334,10 @@
     }
     
     async function initializeApp() {
+      if(APPS_SCRIPT_URL.includes('ใส่ลิงก์')) {
+        showToast('❌ กรุณาตั้งค่า APPS_SCRIPT_URL ในโค้ด', 'error');
+        return;
+      }
       showToast('⏳ กำลังโหลดข้อมูล...', 'info');
       try {
         const recordsResponse = await fetch(`${APPS_SCRIPT_URL}?action=getAll`);
@@ -534,7 +528,6 @@
         saveBtn.textContent = 'กำลังบันทึก...';
         
         try {
-          // เพิ่ม headers สำหรับข้ามโดเมน (CORS) บน GitHub
           const response = await fetch(APPS_SCRIPT_URL, { 
             method: 'POST', 
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -590,7 +583,6 @@
       imageSizeInfo.textContent = '';
     };
     
-    // ตั้งค่าลดความละเอียดและคุณภาพให้อัปโหลดผ่านชัวร์ 100%
     async function compressImage(file, maxWidth = 600, maxHeight = 600, quality = 0.6) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
